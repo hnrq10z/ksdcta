@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FlexProfit GPS — Geofence</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#09090e;--bg2:#0f0f17;--bg3:#16161f;
+  --card:#1a1a24;--card2:#202030;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);
+  --accent:#f0b429;--adim:rgba(240,180,41,0.13);--adim2:rgba(240,180,41,0.06);
+  --green:#22c55e;--gdim:rgba(34,197,94,0.13);
+  --red:#ef4444;--rdim:rgba(239,68,68,0.13);
+  --orange:#f97316;--odim:rgba(249,115,22,0.13);
+  --blue:#3b82f6;--bdim:rgba(59,130,246,0.13);
+  --purple:#818cf8;--pdim:rgba(129,140,248,0.13);
+  --text:#eeeef8;--text2:#8888a8;--text3:#4a4a68;
+  --fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;--fm:'DM Mono',monospace;
+  --r:14px;--r2:10px;--r3:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{font-family:var(--fb);color:var(--text);display:flex;justify-content:center}
+.app{width:100%;max-width:430px;height:100%;display:flex;flex-direction:column;background:var(--bg);position:relative}
+
+/* TOPBAR */
+.topbar{padding:14px 18px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;background:rgba(9,9,14,0.96);backdrop-filter:blur(16px)}
+.logo{display:flex;align-items:center;gap:8px}
+.logo-box{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.logo-name{font-family:var(--fh);font-size:17px;font-weight:700;letter-spacing:-0.02em}
+.logo-name b{color:var(--accent)}
+.gps-pill{display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--fm);padding:4px 10px;border-radius:99px;background:var(--bg3);border:1px solid var(--border)}
+.gps-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background 0.3s,box-shadow 0.3s;flex-shrink:0}
+.gps-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.gps-dot.searching{background:var(--orange);animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* SCROLL */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 14px 90px}
+.scroll::-webkit-scrollbar{width:0}
+
+/* BOTTOM NAV */
+.bnav{position:absolute;bottom:0;left:0;right:0;background:rgba(9,9,14,0.97);backdrop-filter:blur(20px);border-top:1px solid var(--border);display:flex;padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:8px 0;color:var(--text3);font-family:var(--fb);font-size:10px;transition:color 0.2s}
+.nb.on{color:var(--accent)}
+.nb svg{width:20px;height:20px;stroke-width:1.7}
+
+/* PAGES */
+.pg{display:none}.pg.on{display:block}
+
+/* SECTION LABEL */
+.sec{font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text3);margin:18px 0 8px}
+.sec:first-child{margin-top:2px}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+
+/* PHASE HERO */
+.hero{border-radius:var(--r);padding:16px;margin-bottom:10px;position:relative;overflow:hidden}
+.hero.idle{background:var(--bg3);border:1px solid var(--border)}
+.hero.setup{background:linear-gradient(135deg,#1c1a06,#191505);border:1px solid rgba(240,180,41,0.2)}
+.hero.t1{background:linear-gradient(135deg,#0a1a0d,#0d1f10);border:1px solid rgba(34,197,94,0.2)}
+.hero.warehouse{background:linear-gradient(135deg,#1a0e04,#1c1005);border:1px solid rgba(249,115,22,0.3)}
+.hero.t2{background:linear-gradient(135deg,#0a1a0d,#0d1f10);border:1px solid rgba(34,197,94,0.2)}
+.hero.delivering{background:linear-gradient(135deg,#0d0a1e,#10091e);border:1px solid rgba(129,140,248,0.2)}
+.hero.returning{background:linear-gradient(135deg,#1a0808,#1c0909);border:1px solid rgba(239,68,68,0.2)}
+.hero.done{background:linear-gradient(135deg,#091a09,#0b1f0b);border:1px solid rgba(34,197,94,0.4)}
+
+.h-tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:4px 10px;border-radius:99px;margin-bottom:10px}
+.h-profit{font-family:var(--fh);font-size:38px;font-weight:800;letter-spacing:-0.04em;line-height:1;margin-bottom:4px}
+.h-sub{font-size:12px;color:var(--text2);margin-bottom:12px}
+.live-row{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.lb{background:rgba(0,0,0,0.25);border-radius:var(--r3);padding:9px;text-align:center}
+.lv{font-family:var(--fm);font-size:13px;font-weight:500;display:block;margin-bottom:2px}
+.ll{font-size:9px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3)}
+.prog-track{height:3px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;margin-bottom:12px}
+.prog-fill{height:100%;border-radius:99px;transition:width 0.6s cubic-bezier(.4,0,.2,1),background 0.3s}
+
+/* GEOFENCE ALERT */
+.geo-alert{border-radius:var(--r2);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;animation:slideIn 0.3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.geo-alert.enter{background:var(--gdim);border:1px solid rgba(34,197,94,0.25)}
+.geo-alert.exit{background:var(--odim);border:1px solid rgba(249,115,22,0.25)}
+.geo-alert.none{display:none}
+.geo-icon{font-size:20px;flex-shrink:0}
+.geo-body .geo-title{font-size:13px;font-weight:600;margin-bottom:2px}
+.geo-body .geo-sub{font-size:11px;color:var(--text2)}
+
+/* STEPS */
+.steps-list{display:flex;flex-direction:column;gap:0}
+.step{display:flex;align-items:center;gap:11px;padding:10px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-ic{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;transition:opacity 0.3s}
+.step.pending .step-ic{opacity:0.35}
+.step.active .step-ic{animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.step-body{flex:1;min-width:0}
+.step-name{font-size:13px;font-weight:500;margin-bottom:1px}
+.step-det{font-size:10px;color:var(--text3)}
+.step-mi{font-family:var(--fm);font-size:12px;color:var(--text3)}
+
+/* ACTION AREA */
+.act{margin-bottom:10px}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--r2);font-family:var(--fh);font-size:14px;font-weight:700;cursor:pointer;transition:transform 0.15s,opacity 0.15s;letter-spacing:0.02em;margin-bottom:7px}
+.btn:last-child{margin-bottom:0}
+.btn:active{transform:scale(0.97)}
+.btn-y{background:var(--accent);color:#09090e}
+.btn-g{background:var(--green);color:#09090e}
+.btn-r{background:var(--red);color:#fff}
+.btn-o{background:transparent;border:1px solid var(--border2);color:var(--text2)}
+.btn-sm{padding:8px 14px;font-size:11px;width:auto;border-radius:var(--r3)}
+
+/* WAREHOUSE NEARBY */
+.wh-nearby{background:var(--adim);border:1px solid rgba(240,180,41,0.2);border-radius:var(--r2);padding:12px;margin-bottom:10px}
+.wh-name{font-size:14px;font-weight:600;color:var(--accent);margin-bottom:2px}
+.wh-dist{font-size:11px;color:var(--text2);font-family:var(--fm)}
+
+/* INPUTS */
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.r3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);font-weight:600}
+.pfx{position:relative}
+.pfx::before{content:attr(data-s);position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-family:var(--fm);font-size:13px;pointer-events:none}
+.pfx input{padding-left:26px}
+.field input,.field select{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r3);padding:9px 11px;font-size:14px;font-family:var(--fm);color:var(--text);width:100%;transition:border-color 0.2s,box-shadow 0.2s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--adim)}
+.field select option{background:var(--bg3)}
+
+/* HISTORY */
+.hi{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.hi-dot{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:11px;font-weight:700;flex-shrink:0}
+.hi-body{flex:1;min-width:0}
+.hi-t{font-size:13px;font-weight:500;margin-bottom:2px}
+.hi-s{font-size:10px;color:var(--text3)}
+.hi-r{text-align:right}
+.hi-ph{font-family:var(--fm);font-size:14px;font-weight:500}
+.hi-s2{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* DASH */
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px}
+.dc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:13px}
+.dc-l{font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text3);margin-bottom:5px}
+.dc-v{font-family:var(--fh);font-size:20px;font-weight:700;letter-spacing:-0.02em}
+.dc-s{font-size:10px;color:var(--text3);margin-top:2px}
+
+/* WAREHOUSE LIST (DB page) */
+.wl{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px}
+.wl-item{display:flex;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--border);transition:background 0.15s}
+.wl-item:last-child{border-bottom:none}
+.wl-item:hover{background:var(--card2)}
+.wl-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;font-family:var(--fm);flex-shrink:0}
+.wl-br{background:rgba(34,197,94,0.15);color:var(--green)}
+.wl-us{background:rgba(59,130,246,0.15);color:var(--blue)}
+.wl-body{flex:1;min-width:0}
+.wl-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wl-coord{font-size:10px;color:var(--text3);font-family:var(--fm)}
+.wl-r{font-size:10px;color:var(--text3);font-family:var(--fm);flex-shrink:0}
+
+/* SEARCH */
+.search-wrap{position:relative;margin-bottom:10px}
+.search-wrap input{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:10px 12px 10px 36px;font-size:13px;color:var(--text);width:100%}
+.search-wrap input:focus{outline:none;border-color:var(--accent)}
+.search-wrap::before{content:"🔍";position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;pointer-events:none}
+
+/* CONFIG ROWS */
+.srow{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.srow:last-child{border-bottom:none;padding-bottom:0}
+.srow-name{font-size:13px;color:var(--text)}
+.srow-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.srow-val{font-family:var(--fm);font-size:12px;color:var(--accent);background:var(--adim2);border:1px solid rgba(240,180,41,0.12);border-radius:var(--r3);padding:3px 9px}
+
+/* TOAST */
+.toast{position:absolute;bottom:80px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--card2);border:1px solid var(--border2);border-radius:99px;padding:9px 18px;font-size:12px;color:var(--text);opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.25s;white-space:nowrap;z-index:999}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* EMPTY */
+.empty{text-align:center;padding:36px 20px;color:var(--text3)}
+.empty-icon{font-size:34px;margin-bottom:10px;opacity:0.4}
+.empty-txt{font-size:13px;line-height:1.6}
+
+/* INFO BOX */
+.ibox{background:var(--bdim);border:1px solid rgba(59,130,246,0.2);border-radius:var(--r3);padding:10px 12px;font-size:12px;color:var(--blue);margin-bottom:10px;line-height:1.6}
+.wbox{background:var(--odim);border:1px solid rgba(249,115,22,0.2);border-radius:var(--r3);padding:10px 12px;font-size:12px;color:var(--orange);margin-bottom:10px;line-height:1.6}
+.div{height:1px;background:var(--border);margin:6px 0 10px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-box">📦</div>
+    <div class="logo-name">Flex<b>Profit</b></div>
+  </div>
+  <div class="gps-pill">
+    <div class="gps-dot" id="gps-dot"></div>
+    <span id="gps-lbl">GPS off</span>
+  </div>
+</div>
+
+<!-- SCROLL -->
+<div class="scroll">
+
+<!-- ========== PAGE: GPS ========== -->
+<div class="pg on" id="pg-gps">
+
+  <!-- GEOFENCE ALERT -->
+  <div class="geo-alert none" id="geo-alert">
+    <div class="geo-icon" id="geo-icon">🏭</div>
+    <div class="geo-body">
+      <div class="geo-title" id="geo-title">Armazém detectado!</div>
+      <div class="geo-sub" id="geo-sub">Amazon XXX — 120m de distância</div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero idle" id="hero">
+    <div class="h-tag" id="h-tag" style="background:rgba(74,74,104,0.25);color:var(--text3)">
+      <span id="h-icon">⊙</span>&nbsp;<span id="h-name">Aguardando</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="prog" style="width:0%;background:var(--accent)"></div></div>
+    <div class="h-profit" id="h-profit" style="color:var(--text3)">$0.00</div>
+    <div class="h-sub" id="h-sub">Inicie uma rota para começar</div>
+    <div class="live-row">
+      <div class="lb"><span class="lv" id="lv-mi" style="color:var(--text2)">0.00</span><span class="ll">milhas</span></div>
+      <div class="lb"><span class="lv" id="lv-cost" style="color:var(--red)">$0.00</span><span class="ll">custo</span></div>
+      <div class="lb"><span class="lv" id="lv-time" style="color:var(--text2)">00:00</span><span class="ll">tempo</span></div>
+    </div>
+  </div>
+
+  <!-- ARMAZÉM PRÓXIMO (só aparece quando detectar) -->
+  <div id="nearby-box" style="display:none"></div>
+
+  <!-- STEPS -->
+  <div class="sec">Etapas da rota</div>
+  <div class="card">
+    <div class="steps-list" id="steps"></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="act" id="act"></div>
+
+</div>
+
+<!-- ========== PAGE: SETUP ========== -->
+<div class="pg" id="pg-setup">
+  <div class="sec">Nova rota</div>
+  <div class="ibox">Preencha o valor da rota. O GPS e o banco de armazéns vão fazer o resto automaticamente.</div>
+  <div class="card">
+    <div class="r2" style="margin-bottom:10px">
+      <div class="field"><label>Valor da rota ($)</label><div class="pfx" data-s="$"><input type="number" id="s-route" value="77" step="1" min="0"></div></div>
+      <div class="field"><label>Horas estimadas</label><input type="number" id="s-hours" value="3" step="0.5" min="0.5"></div>
+    </div>
+    <div class="div"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Veículo</div>
+    <div class="r3">
+      <div class="field"><label>Desgaste/mi</label><div class="pfx" data-s="$"><input type="number" id="s-wear" value="0.21" step="0.01"></div></div>
+      <div class="field"><label>Gasolina/gal</label><div class="pfx" data-s="$"><input type="number" id="s-gas" value="3.50" step="0.01"></div></div>
+      <div class="field"><label>MPG</label><input type="number" id="s-mpg" value="28" step="1"></div>
+    </div>
+    <div style="margin-top:9px" class="r2">
+      <div class="field"><label>Pedágios ($)</label><div class="pfx" data-s="$"><input type="number" id="s-tolls" value="0" step="0.5"></div></div>
+      <div class="field"><label>Nº de stops</label><input type="number" id="s-stops" value="20" step="1" min="1"></div>
+    </div>
+  </div>
+  <button class="btn btn-y" onclick="confirmSetup()">Capturar posição de casa e iniciar</button>
+  <button class="btn btn-o" onclick="cancelSetup()">Cancelar</button>
+</div>
+
+<!-- ========== PAGE: DATABASE ========== -->
+<div class="pg" id="pg-db">
+  <div class="sec" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Banco de armazéns (<span id="db-count">0</span>)</span>
+    <button class="btn btn-o btn-sm" onclick="showAddWarehouse()">+ Adicionar</button>
+  </div>
+
+  <!-- ADD FORM (hidden by default) -->
+  <div id="add-wh-form" style="display:none" class="card">
+    <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px">Novo armazém</div>
+    <div class="r2" style="margin-bottom:8px">
+      <div class="field"><label>Nome / Código</label><input type="text" id="wh-name" placeholder="ex: Amazon BEL1"></div>
+      <div class="field"><label>Cidade</label><input type="text" id="wh-city" placeholder="ex: Belém, PA"></div>
+    </div>
+    <div class="r3" style="margin-bottom:8px">
+      <div class="field"><label>Latitude</label><input type="number" id="wh-lat" placeholder="-1.4558" step="0.00001"></div>
+      <div class="field"><label>Longitude</label><input type="number" id="wh-lng" placeholder="-48.4902" step="0.00001"></div>
+      <div class="field"><label>Raio (metros)</label><input type="number" id="wh-radius" value="150" step="10"></div>
+    </div>
+    <div class="r2">
+      <button class="btn btn-y" style="font-size:12px;padding:10px" onclick="addWarehouse()">Salvar armazém</button>
+      <button class="btn btn-o" style="font-size:12px;padding:10px" onclick="hideAddWarehouse()">Cancelar</button>
+    </div>
+    <div class="ibox" style="margin-top:10px;margin-bottom:0">Dica: vá até o armazém, clique em "Capturar minha posição" abaixo e as coordenadas serão preenchidas automaticamente.</div>
+    <button class="btn btn-o" style="font-size:11px;padding:9px;margin-top:8px" onclick="captureForWarehouse()">📍 Capturar minha posição atual</button>
+  </div>
+
+  <div class="search-wrap"><input type="text" id="db-search" placeholder="Buscar armazém..." oninput="renderDB()"></div>
+
+  <!-- FILTER -->
+  <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap" id="db-filter">
+    <button class="btn btn-o btn-sm on-filter" data-f="all" onclick="setFilter('all',this)" style="border-color:var(--accent);color:var(--accent)">Todos</button>
+    <button class="btn btn-o btn-sm" data-f="BR" onclick="setFilter('BR',this)">🇧🇷 Brasil</button>
+    <button class="btn btn-o btn-sm" data-f="US" onclick="setFilter('US',this)">🇺🇸 EUA</button>
+    <button class="btn btn-o btn-sm" data-f="custom" onclick="setFilter('custom',this)">⭐ Meus</button>
+  </div>
+
+  <div id="db-list"></div>
+</div>
+
+<!-- ========== PAGE: HISTÓRICO ========== -->
+<div class="pg" id="pg-hist">
+  <div class="dgrid">
+    <div class="dc"><div class="dc-l">Total ganho</div><div class="dc-v" id="d-total" style="color:var(--green)">$0</div><div class="dc-s" id="d-count">0 rotas</div></div>
+    <div class="dc"><div class="dc-l">Média/hora</div><div class="dc-v" id="d-avg">$0/h</div><div class="dc-s">geral</div></div>
+    <div class="dc"><div class="dc-l">Melhor rota</div><div class="dc-v" id="d-best" style="color:var(--accent)">—</div><div class="dc-s">lucro líquido</div></div>
+    <div class="dc"><div class="dc-l">Rotas ótimas</div><div class="dc-v" id="d-great">0</div><div class="dc-s">≥ $20/h</div></div>
+  </div>
+  <div class="sec" style="display:flex;align-items:center;justify-content:space-between">
+    <span>Rotas salvas</span>
+    <button class="btn btn-o btn-sm" onclick="clearHist()">Limpar</button>
+  </div>
+  <div id="hist-list"></div>
+</div>
+
+</div><!-- end scroll -->
+
+<!-- BOTTOM NAV -->
+<nav class="bnav">
+  <button class="nb on" onclick="goPage('gps',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+    GPS ao vivo
+  </button>
+  <button class="nb" onclick="goPage('db',this);renderDB()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+    Armazéns
+  </button>
+  <button class="nb" onclick="goPage('hist',this);renderHist()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"/><polyline points="12 8 12 12 14.5 14.5"/></svg>
+    Histórico
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =====================================================
+   BANCO DE ARMAZÉNS AMAZON
+   Estrutura: { id, name, city, country, lat, lng, radius, custom }
+   ===================================================== */
+const WAREHOUSES_DEFAULT = [
+  /* ===== BRASIL ===== */
+  {id:'BEL1',name:'Amazon BEL1',city:'Belém, PA',country:'BR',lat:-1.4558,lng:-48.4902,radius:150},
+  {id:'FOR1',name:'Amazon FOR1',city:'Fortaleza, CE',country:'BR',lat:-3.7318,lng:-38.5267,radius:150},
+  {id:'REC1',name:'Amazon REC1',city:'Recife, PE',country:'BR',lat:-8.0476,lng:-34.8770,radius:150},
+  {id:'SSA1',name:'Amazon SSA1',city:'Salvador, BA',country:'BR',lat:-12.9714,lng:-38.5014,radius:150},
+  {id:'GRU1',name:'Amazon GRU1',city:'Guarulhos, SP',country:'BR',lat:-23.4356,lng:-46.5330,radius:200},
+  {id:'GRU2',name:'Amazon GRU2',city:'Cajamar, SP',country:'BR',lat:-23.3573,lng:-46.8786,radius:200},
+  {id:'GRU3',name:'Amazon GRU3',city:'Barueri, SP',country:'BR',lat:-23.5098,lng:-46.8761,radius:150},
+  {id:'SAO1',name:'Amazon SAO1',city:'São Paulo, SP',country:'BR',lat:-23.6273,lng:-46.6566,radius:150},
+  {id:'RIO1',name:'Amazon RIO1',city:'Rio de Janeiro, RJ',country:'BR',lat:-22.9035,lng:-43.1730,radius:150},
+  {id:'RIO2',name:'Amazon RIO2',city:'Duque de Caxias, RJ',country:'BR',lat:-22.7856,lng:-43.3117,radius:150},
+  {id:'BHZ1',name:'Amazon BHZ1',city:'Contagem, MG',country:'BR',lat:-19.9402,lng:-44.0534,radius:150},
+  {id:'CWB1',name:'Amazon CWB1',city:'Curitiba, PR',country:'BR',lat:-25.4284,lng:-49.2733,radius:150},
+  {id:'POA1',name:'Amazon POA1',city:'Porto Alegre, RS',country:'BR',lat:-29.9762,lng:-51.1799,radius:150},
+  {id:'BSB1',name:'Amazon BSB1',city:'Brasília, DF',country:'BR',lat:-15.8267,lng:-47.9218,radius:150},
+  {id:'MAN1',name:'Amazon MAN1',city:'Manaus, AM',country:'BR',lat:-3.0722,lng:-60.0255,radius:150},
+  {id:'GYN1',name:'Amazon GYN1',city:'Goiânia, GO',country:'BR',lat:-16.6799,lng:-49.2550,radius:150},
+  {id:'VIX1',name:'Amazon VIX1',city:'Vitória, ES',country:'BR',lat:-20.3155,lng:-40.3128,radius:150},
+  {id:'SLZ1',name:'Amazon SLZ1',city:'São Luís, MA',country:'BR',lat:-2.5297,lng:-44.3028,radius:150},
+  {id:'MCZ1',name:'Amazon MCZ1',city:'Maceió, AL',country:'BR',lat:-9.6658,lng:-35.7350,radius:150},
+  {id:'NAT1',name:'Amazon NAT1',city:'Natal, RN',country:'BR',lat:-5.7945,lng:-35.2110,radius:150},
+  /* ===== EUA (exemplos principais) ===== */
+  {id:'JFK8',name:'Amazon JFK8',city:'Staten Island, NY',country:'US',lat:40.6315,lng:-74.2005,radius:200},
+  {id:'BDL2',name:'Amazon BDL2',city:'Windsor, CT',country:'US',lat:41.8534,lng:-72.6770,radius:200},
+  {id:'BOS7',name:'Amazon BOS7',city:'Fall River, MA',country:'US',lat:41.7315,lng:-71.0973,radius:200},
+  {id:'MDT2',name:'Amazon MDT2',city:'Carlisle, PA',country:'US',lat:40.2015,lng:-77.1887,radius:200},
+  {id:'PHL4',name:'Amazon PHL4',city:'Avenel, NJ',country:'US',lat:40.5782,lng:-74.2727,radius:200},
+  {id:'BWI2',name:'Amazon BWI2',city:'Baltimore, MD',country:'US',lat:39.2904,lng:-76.7321,radius:200},
+  {id:'DCA1',name:'Amazon DCA1',city:'Manassas, VA',country:'US',lat:38.7223,lng:-77.4705,radius:200},
+  {id:'CLT2',name:'Amazon CLT2',city:'Charlotte, NC',country:'US',lat:35.2271,lng:-80.8431,radius:200},
+  {id:'ATL6',name:'Amazon ATL6',city:'McDonough, GA',country:'US',lat:33.4473,lng:-84.1469,radius:200},
+  {id:'MIA5',name:'Amazon MIA5',city:'Opa-locka, FL',country:'US',lat:25.9101,lng:-80.2799,radius:200},
+  {id:'MCO1',name:'Amazon MCO1',city:'Lakeland, FL',country:'US',lat:27.9945,lng:-81.9498,radius:200},
+  {id:'CMH1',name:'Amazon CMH1',city:'Etna, OH',country:'US',lat:40.0042,lng:-82.6818,radius:200},
+  {id:'IND1',name:'Amazon IND1',city:'Whitestown, IN',country:'US',lat:39.9884,lng:-86.3647,radius:200},
+  {id:'MDW2',name:'Amazon MDW2',city:'Joliet, IL',country:'US',lat:41.5250,lng:-88.0817,radius:200},
+  {id:'MSP5',name:'Amazon MSP5',city:'Shakopee, MN',country:'US',lat:44.7774,lng:-93.5247,radius:200},
+  {id:'STL8',name:'Amazon STL8',city:'Edwardsville, IL',country:'US',lat:38.8120,lng:-90.0432,radius:200},
+  {id:'DEN2',name:'Amazon DEN2',city:'Aurora, CO',country:'US',lat:39.7392,lng:-104.8400,radius:200},
+  {id:'PHX3',name:'Amazon PHX3',city:'Goodyear, AZ',country:'US',lat:33.4484,lng:-112.3736,radius:200},
+  {id:'LAX9',name:'Amazon LAX9',city:'Hawthorne, CA',country:'US',lat:33.9164,lng:-118.3526,radius:200},
+  {id:'LGB3',name:'Amazon LGB3',city:'Rancho Dominguez, CA',country:'US',lat:33.8894,lng:-118.2229,radius:200},
+  {id:'SFO1',name:'Amazon SFO1',city:'Fremont, CA',country:'US',lat:37.5485,lng:-121.9886,radius:200},
+  {id:'SEA6',name:'Amazon SEA6',city:'Kent, WA',country:'US',lat:47.3809,lng:-122.2348,radius:200},
+  {id:'HOU3',name:'Amazon HOU3',city:'Houston, TX',country:'US',lat:29.7604,lng:-95.3698,radius:200},
+  {id:'DFW6',name:'Amazon DFW6',city:'Coppell, TX',country:'US',lat:32.9546,lng:-97.0157,radius:200},
+];
+
+/* =====================================================
+   STATE
+   ===================================================== */
+let cfg  = JSON.parse(localStorage.getItem('fp-cfg')  || JSON.stringify({wear:0.21,gas:3.50,mpg:28,minH:15}));
+let hist = JSON.parse(localStorage.getItem('fp-hist') || '[]');
+let customWH = JSON.parse(localStorage.getItem('fp-wh') || '[]');
+let dbFilter = 'all';
+
+function allWarehouses() { return [...WAREHOUSES_DEFAULT, ...customWH]; }
+
+let S = freshState();
+function freshState() {
+  return {
+    phase:'idle', routeVal:0, routeHours:3, stops:20, tolls:0,
+    homeCoord:null, currentCoord:null,
+    totalMiles:0, seg:{t1:0,t2:0,t3:0},
+    detectedWH:null, nearestWH:null,
+    startTime:null, elapsedSec:0,
+    watchId:null, timerInt:null,
+    posHist:[], inGeofence:false, geoCooldown:0,
+    confirmCount:0 /* para double-confirm de geofence */
+  };
+}
+
+/* =====================================================
+   NAVIGATION
+   ===================================================== */
+function goPage(id, btn) {
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
+  document.getElementById('pg-'+id).classList.add('on');
+  if(btn) btn.classList.add('on');
+}
+
+/* =====================================================
+   GPS ENGINE
+   ===================================================== */
+function haversine(lat1,lon1,lat2,lon2) {
+  const R=3958.8, dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function haversineMeters(lat1,lon1,lat2,lon2){ return haversine(lat1,lon1,lat2,lon2)*1609.34; }
+
+function setGPSdot(state) {
+  const d = document.getElementById('gps-dot');
+  const l = document.getElementById('gps-lbl');
+  d.className = 'gps-dot' + (state==='on'?' on': state==='searching'?' searching':'');
+  l.textContent = state==='on'?'GPS ativo': state==='searching'?'Buscando...':'GPS off';
+}
+
+function startGPS() {
+  if(!navigator.geolocation){ toast('GPS não suportado'); return; }
+  setGPSdot('searching');
+  S.watchId = navigator.geolocation.watchPosition(
+    pos => onGPS(pos),
+    err => { setGPSdot('off'); toast('GPS erro: '+err.message); },
+    { enableHighAccuracy:true, timeout:10000, maximumAge:3000 }
+  );
+}
+
+function stopGPS() {
+  if(S.watchId!==null){ navigator.geolocation.clearWatch(S.watchId); S.watchId=null; }
+  setGPSdot('off');
+}
+
+function onGPS(pos) {
+  setGPSdot('on');
+  const c = {lat:pos.coords.latitude, lng:pos.coords.longitude, acc:pos.coords.accuracy};
+  S.currentCoord = c;
+
+  /* Acumula milhas durante trechos ativos */
+  const trackPhases = ['t1','t2','returning'];
+  if(trackPhases.includes(S.phase) && c.acc < 80) {
+    if(S.posHist.length > 0) {
+      const prev = S.posHist[S.posHist.length-1];
+      const d = haversine(prev.lat,prev.lng,c.lat,c.lng);
+      if(d>0.008 && d<0.8) {
+        const seg = S.phase==='t1'?'t1': S.phase==='t2'?'t2':'t3';
+        S.seg[seg]+=d; S.totalMiles=S.seg.t1+S.seg.t2+S.seg.t3;
+      }
+    }
+    S.posHist.push(c);
+    if(S.posHist.length>300) S.posHist.shift();
+  }
+
+  /* GEOFENCE CHECK */
+  checkGeofence(c);
+  updateLiveUI();
+}
+
+/* =====================================================
+   GEOFENCE ENGINE — o coração do sistema
+   ===================================================== */
+function checkGeofence(coord) {
+  const whs = allWarehouses();
+  let nearest = null, nearestDist = Infinity;
+
+  whs.forEach(wh => {
+    const dist = haversineMeters(coord.lat,coord.lng,wh.lat,wh.lng);
+    if(dist < nearestDist){ nearestDist=dist; nearest=wh; }
+  });
+
+  S.nearestWH = nearest;
+  const inside = nearest && nearestDist <= nearest.radius;
+
+  /* SHOW NEARBY BOX */
+  const nb = document.getElementById('nearby-box');
+  if(nearest && nearestDist < 1000) {
+    nb.style.display='block';
+    nb.innerHTML=`<div class="wh-nearby">
+      <div class="wh-name">📦 ${nearest.name}</div>
+      <div class="wh-dist">${nearest.city} • ${Math.round(nearestDist)}m de distância ${inside?'• <span style="color:var(--green)">DENTRO DO RAIO</span>':''}</div>
+    </div>`;
+  } else { nb.style.display='none'; }
+
+  /* GEOFENCE STATE MACHINE */
+  if(S.phase === 't1') {
+    /* Aguardando chegada no armazém */
+    if(inside) {
+      S.confirmCount = (S.confirmCount||0) + 1;
+      if(S.confirmCount >= 2) { /* 2 leituras dentro = confirmado */
+        S.confirmCount = 0;
+        autoArrivedWarehouse(nearest, nearestDist);
+      }
+    } else { S.confirmCount = 0; }
+  }
+
+  if(S.phase === 'warehouse') {
+    /* Aguardando saída do armazém */
+    if(!inside) {
+      S.confirmCount = (S.confirmCount||0) + 1;
+      if(S.confirmCount >= 3) { /* 3 leituras fora = saiu */
+        S.confirmCount = 0;
+        autoLeftWarehouse();
+      }
+    } else { S.confirmCount = 0; }
+  }
+
+  /* ALERT VISUAL */
+  const alert = document.getElementById('geo-alert');
+  if(inside && !S.inGeofence) {
+    S.inGeofence = true;
+    showGeoAlert('enter', nearest.name, nearest.city);
+  } else if(!inside && S.inGeofence) {
+    S.inGeofence = false;
+    if(S.detectedWH) showGeoAlert('exit', S.detectedWH.name, 'Saída registrada automaticamente');
+  }
+}
+
+function showGeoAlert(type, title, sub) {
+  const el = document.getElementById('geo-alert');
+  el.className = 'geo-alert ' + type;
+  document.getElementById('geo-icon').textContent = type==='enter'?'🏭':'🚗';
+  document.getElementById('geo-title').textContent = title;
+  document.getElementById('geo-sub').textContent = sub;
+  if(navigator.vibrate) navigator.vibrate([100,50,100]);
+  setTimeout(()=>{ el.className='geo-alert none'; }, 5000);
+}
+
+/* =====================================================
+   AUTO-ACTIONS DO GEOFENCE
+   ===================================================== */
+function autoArrivedWarehouse(wh, dist) {
+  if(S.phase !== 't1') return;
+  S.detectedWH = wh;
+  S.posHist = S.currentCoord ? [S.currentCoord] : [];
+  setPhase('warehouse');
+  toast(`🏭 ${wh.name} detectado automaticamente! (${Math.round(dist)}m)`);
+  if(navigator.vibrate) navigator.vibrate([200,100,200]);
+}
+
+function autoLeftWarehouse() {
+  if(S.phase !== 'warehouse') return;
+  S.posHist = S.currentCoord ? [S.currentCoord] : [];
+  setPhase('t2');
+  toast('📦 Saída do armazém detectada! Rastreando rota até 1ª entrega.');
+  if(navigator.vibrate) navigator.vibrate([150]);
+}
+
+/* =====================================================
+   FASES
+   ===================================================== */
+const PHASES = {
+  idle:      {name:'Aguardando',     icon:'⊙', hClass:'idle',      color:'var(--text3)',  prog:0,  tagBg:'rgba(74,74,104,0.25)',tagColor:'var(--text3)'},
+  setup:     {name:'Configurando',   icon:'⚙', hClass:'setup',     color:'var(--accent)', prog:5,  tagBg:'var(--adim)',tagColor:'var(--accent)'},
+  t1:        {name:'Casa → Armazém', icon:'🏠', hClass:'t1',       color:'var(--green)',  prog:25, tagBg:'var(--gdim)',tagColor:'var(--green)'},
+  warehouse: {name:'No armazém',     icon:'🏭', hClass:'warehouse', color:'var(--orange)', prog:45, tagBg:'var(--odim)',tagColor:'var(--orange)'},
+  t2:        {name:'Armazém → 1ª',   icon:'📦', hClass:'t2',       color:'var(--green)',  prog:60, tagBg:'var(--gdim)',tagColor:'var(--green)'},
+  delivering:{name:'Entregando',     icon:'🚚', hClass:'delivering',color:'var(--purple)', prog:78, tagBg:'var(--pdim)',tagColor:'var(--purple)'},
+  returning: {name:'Retornando',     icon:'🏁', hClass:'returning', color:'var(--red)',    prog:92, tagBg:'var(--rdim)',tagColor:'var(--red)'},
+  done:      {name:'Concluída!',     icon:'✅', hClass:'done',      color:'var(--green)',  prog:100,tagBg:'var(--gdim)',tagColor:'var(--green)'}
+};
+
+function setPhase(phase) {
+  S.phase = phase;
+  const p = PHASES[phase];
+  document.getElementById('hero').className = 'hero '+p.hClass;
+  document.getElementById('h-icon').textContent = p.icon;
+  document.getElementById('h-name').textContent = p.name;
+  document.getElementById('prog').style.width = p.prog+'%';
+  document.getElementById('prog').style.background = p.color;
+  document.getElementById('h-tag').style.background = p.tagBg;
+  document.getElementById('h-tag').style.color = p.tagColor;
+  renderSteps(); renderAct(); updateLiveUI();
+}
+
+/* =====================================================
+   STEPS RENDER
+   ===================================================== */
+const STEP_DEFS = [
+  {icon:'🏠',name:'Saída de casa',                activePhases:['t1'],        donePhases:['warehouse','t2','delivering','returning','done']},
+  {icon:'🏭',name:'Chegada ao armazém',            activePhases:['warehouse'], donePhases:['t2','delivering','returning','done']},
+  {icon:'📦',name:'1ª entrega / entregas',         activePhases:['t2','delivering'], donePhases:['returning','done']},
+  {icon:'🏁',name:'Retorno para casa',             activePhases:['returning'], donePhases:['done']}
+];
+
+function renderSteps() {
+  const html = STEP_DEFS.map((sd,i)=>{
+    const isDone = sd.donePhases.includes(S.phase);
+    const isActive = sd.activePhases.includes(S.phase);
+    const st = isDone?'done':isActive?'active':'pending';
+    const icBg = isDone?'var(--gdim)':isActive?'var(--adim)':'rgba(74,74,104,0.2)';
+    const miLabels = [S.seg.t1,S.seg.t1,S.seg.t2,S.seg.t3];
+    const mi = miLabels[i];
+    const miTxt = (isDone||isActive)&&mi>0 ? mi.toFixed(2)+' mi' : isDone?'✓':'—';
+    let det = '';
+    if(i===1 && S.detectedWH) det = S.detectedWH.name;
+    return `<div class="step ${st}">
+      <div class="step-ic" style="background:${icBg}">${sd.icon}</div>
+      <div class="step-body">
+        <div class="step-name">${sd.name}</div>
+        <div class="step-det">${det||''}</div>
+      </div>
+      <div class="step-mi" style="color:${isDone?'var(--green)':isActive?'var(--accent)':'var(--text3)'}">${miTxt}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('steps').innerHTML = html;
+}
+
+/* =====================================================
+   ACTION BUTTONS
+   ===================================================== */
+function renderAct() {
+  const el = document.getElementById('act');
+  const p = S.phase;
+  if(p==='idle') {
+    el.innerHTML=`<button class="btn btn-y" onclick="startSetup()">Iniciar nova rota</button>`;
+  } else if(p==='t1') {
+    el.innerHTML=`
+      <div class="ibox" style="font-size:11px">GPS monitorando armazéns próximos automaticamente. Você chegará e saíra do armazém sem precisar tocar no app!</div>
+      <button class="btn btn-y" onclick="manualArrivedWarehouse()">Forçar: cheguei no armazém</button>
+      <button class="btn btn-o" onclick="cancelRoute()">Cancelar rota</button>`;
+  } else if(p==='warehouse') {
+    el.innerHTML=`
+      <div class="ibox" style="font-size:11px">O app vai detectar sua saída automaticamente quando você sair do raio do armazém.</div>
+      <button class="btn btn-g" onclick="manualLeftWarehouse()">Forçar: saí do armazém</button>
+      <button class="btn btn-o" onclick="cancelRoute()">Cancelar</button>`;
+  } else if(p==='t2') {
+    el.innerHTML=`
+      <button class="btn btn-y" onclick="arrivedFirstDelivery()">Cheguei na 1ª entrega ✓</button>
+      <button class="btn btn-o" onclick="cancelRoute()">Cancelar</button>`;
+  } else if(p==='delivering') {
+    el.innerHTML=`
+      <div class="wbox" style="font-size:11px">Realize todas as ${S.stops} entregas. Quando terminar, clique abaixo.</div>
+      <button class="btn btn-r" onclick="startReturn()">Finalizei — retornando para casa</button>
+      <button class="btn btn-o" onclick="cancelRoute()">Cancelar</button>`;
+  } else if(p==='returning') {
+    el.innerHTML=`
+      <button class="btn btn-g" onclick="arrivedHome()">Cheguei em casa ✓</button>
+      <button class="btn btn-o" onclick="cancelRoute()">Cancelar</button>`;
+  } else if(p==='done') {
+    el.innerHTML=`
+      <button class="btn btn-y" onclick="saveAndReset()">Salvar no histórico</button>
+      <button class="btn btn-o" onclick="resetRoute()">Descartar</button>`;
+  }
+}
+
+/* =====================================================
+   LIVE UI
+   ===================================================== */
+function calcCosts() {
+  const gas=(S.totalMiles/(cfg.mpg||28))*(cfg.gas||3.5);
+  const wear=S.totalMiles*(cfg.wear||0.21);
+  const total=gas+wear+(S.tolls||0);
+  const profit=S.routeVal-total;
+  const hourly=S.elapsedSec>0?profit/(S.elapsedSec/3600):0;
+  return{gas,wear,total,profit,hourly};
+}
+
+function updateLiveUI() {
+  const c = calcCosts();
+  const pe = document.getElementById('h-profit');
+  pe.style.color = c.profit>=0?'var(--green)':'var(--red)';
+  pe.textContent = (c.profit>=0?'':'-')+'$'+Math.abs(c.profit).toFixed(2);
+
+  const subs = {
+    idle:'Inicie uma rota para começar',
+    setup:'Configure os detalhes da rota',
+    t1:'Dirigindo ao armazém — geofence ativo',
+    warehouse:'Aguardando saída automática do armazém...',
+    t2:'Dirigindo para a 1ª entrega',
+    delivering:`Realizando entregas (${S.stops} stops)`,
+    returning:'Retornando — GPS rastreando',
+    done:`Rota concluída! Salve no histórico.`
+  };
+  document.getElementById('h-sub').textContent = subs[S.phase]||'';
+  document.getElementById('lv-mi').textContent = S.totalMiles.toFixed(2);
+  document.getElementById('lv-mi').style.color = S.totalMiles>0?'var(--text)':'var(--text2)';
+  document.getElementById('lv-cost').textContent = '-$'+c.total.toFixed(2);
+  const m=Math.floor(S.elapsedSec/60), s=S.elapsedSec%60;
+  document.getElementById('lv-time').textContent = String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+
+/* =====================================================
+   TIMER
+   ===================================================== */
+function startTimer() {
+  S.startTime = Date.now()-(S.elapsedSec*1000);
+  S.timerInt = setInterval(()=>{
+    S.elapsedSec = Math.floor((Date.now()-S.startTime)/1000);
+    updateLiveUI();
+  },1000);
+}
+function stopTimer() { if(S.timerInt){ clearInterval(S.timerInt); S.timerInt=null; } }
+
+/* =====================================================
+   FLOW ACTIONS
+   ===================================================== */
+function startSetup() {
+  goPage('setup',null);
+  document.querySelectorAll('.nb')[0].classList.add('on');
+  setPhase('setup');
+}
+function cancelSetup() { goPage('gps',null); setPhase('idle'); }
+
+function confirmSetup() {
+  S.routeVal  = parseFloat(document.getElementById('s-route').value)||77;
+  S.routeHours= parseFloat(document.getElementById('s-hours').value)||3;
+  S.tolls     = parseFloat(document.getElementById('s-tolls').value)||0;
+  S.stops     = parseInt(document.getElementById('s-stops').value)||20;
+  cfg.wear = parseFloat(document.getElementById('s-wear').value)||0.21;
+  cfg.gas  = parseFloat(document.getElementById('s-gas').value)||3.50;
+  cfg.mpg  = parseFloat(document.getElementById('s-mpg').value)||28;
+
+  toast('📍 Capturando posição de casa...');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    S.homeCoord={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    S.totalMiles=0; S.seg={t1:0,t2:0,t3:0}; S.elapsedSec=0;
+    S.posHist=[S.homeCoord]; S.inGeofence=false; S.confirmCount=0;
+    goPage('gps',null);
+    setPhase('t1');
+    startGPS();
+    startTimer();
+    toast('🏠 Casa registrada! Dirigindo para o armazém — geofence ativo.');
+  }, err=>toast('Erro GPS: '+err.message), {enableHighAccuracy:true,timeout:12000});
+}
+
+function manualArrivedWarehouse() {
+  const wh = S.nearestWH || {id:'MANUAL',name:'Armazém (manual)',city:''};
+  autoArrivedWarehouse(wh, 0);
+}
+function manualLeftWarehouse() { autoLeftWarehouse(); }
+
+function arrivedFirstDelivery() {
+  S.posHist = S.currentCoord?[S.currentCoord]:[];
+  setPhase('delivering');
+  toast('📦 1ª entrega registrada! Realize os stops.');
+}
+
+function startReturn() {
+  S.posHist = S.currentCoord?[S.currentCoord]:[];
+  setPhase('returning');
+  toast('🏁 Voltando para casa!');
+}
+
+function arrivedHome() {
+  stopTimer(); stopGPS();
+  setPhase('done');
+  const c=calcCosts();
+  toast('✅ Concluída! Lucro: '+(c.profit>=0?'':'- ')+'$'+Math.abs(c.profit).toFixed(2));
+}
+
+function saveAndReset() {
+  const c=calcCosts();
+  hist.unshift({
+    id:Date.now(),
+    date:new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}),
+    routeVal:S.routeVal, hours:(S.elapsedSec/3600).toFixed(2),
+    totalMiles:S.totalMiles.toFixed(2), seg:{...S.seg},
+    profit:c.profit, hourly:c.hourly, gasCost:c.gas, wearCost:c.wear, tolls:S.tolls,
+    warehouse:S.detectedWH?S.detectedWH.name:'Manual', gps:true
+  });
+  localStorage.setItem('fp-hist',JSON.stringify(hist));
+  toast('💾 Rota salva!');
+  resetRoute();
+  setTimeout(()=>{ goPage('hist',null); renderHist(); document.querySelectorAll('.nb')[2].classList.add('on'); document.querySelectorAll('.nb')[0].classList.remove('on'); },500);
+}
+
+function cancelRoute() {
+  if(!confirm('Cancelar rota em andamento?')) return;
+  resetRoute();
+}
+
+function resetRoute() {
+  stopGPS(); stopTimer();
+  S=freshState();
+  document.getElementById('nearby-box').style.display='none';
+  document.getElementById('geo-alert').className='geo-alert none';
+  setPhase('idle'); updateLiveUI();
+}
+
+/* =====================================================
+   DATABASE PAGE
+   ===================================================== */
+function setFilter(f,btn) {
+  dbFilter=f;
+  document.querySelectorAll('[data-f]').forEach(b=>{ b.style.borderColor=''; b.style.color=''; });
+  btn.style.borderColor='var(--accent)'; btn.style.color='var(--accent)';
+  renderDB();
+}
+
+function renderDB() {
+  const q = (document.getElementById('db-search').value||'').toLowerCase();
+  let whs = allWarehouses();
+  if(dbFilter==='BR') whs=whs.filter(w=>w.country==='BR');
+  else if(dbFilter==='US') whs=whs.filter(w=>w.country==='US');
+  else if(dbFilter==='custom') whs=customWH;
+  if(q) whs=whs.filter(w=>(w.name+w.city).toLowerCase().includes(q));
+
+  document.getElementById('db-count').textContent = allWarehouses().length;
+  const el=document.getElementById('db-list');
+  if(!whs.length){ el.innerHTML='<div class="empty"><div class="empty-icon">🔍</div><div class="empty-txt">Nenhum armazém encontrado.</div></div>'; return; }
+
+  el.innerHTML=`<div class="wl">`+whs.map(w=>{
+    const flag = w.country==='BR'?'BR':'US';
+    const cls = flag==='BR'?'wl-br':'wl-us';
+    const isCustom = !!w.custom;
+    return `<div class="wl-item">
+      <span class="wl-badge ${cls}">${flag}</span>
+      <div class="wl-body">
+        <div class="wl-name">${w.name}${isCustom?' ⭐':''}</div>
+        <div class="wl-coord">${w.city} • ${w.lat.toFixed(4)}, ${w.lng.toFixed(4)}</div>
+      </div>
+      <div class="wl-r">${w.radius}m${isCustom?` <button onclick="deleteWH('${w.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-left:4px">✕</button>`:''}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function showAddWarehouse() {
+  document.getElementById('add-wh-form').style.display='block';
+  document.getElementById('add-wh-form').scrollIntoView({behavior:'smooth'});
+}
+function hideAddWarehouse() { document.getElementById('add-wh-form').style.display='none'; }
+
+function captureForWarehouse() {
+  toast('📍 Capturando posição...');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    document.getElementById('wh-lat').value = pos.coords.latitude.toFixed(6);
+    document.getElementById('wh-lng').value = pos.coords.longitude.toFixed(6);
+    toast('✅ Coordenadas capturadas!');
+  }, err=>toast('Erro GPS: '+err.message), {enableHighAccuracy:true,timeout:10000});
+}
+
+function addWarehouse() {
+  const name=document.getElementById('wh-name').value.trim();
+  const city=document.getElementById('wh-city').value.trim();
+  const lat=parseFloat(document.getElementById('wh-lat').value);
+  const lng=parseFloat(document.getElementById('wh-lng').value);
+  const radius=parseInt(document.getElementById('wh-radius').value)||150;
+  if(!name||!lat||!lng){ toast('Preencha nome, lat e lng'); return; }
+  const id='C'+Date.now();
+  customWH.push({id,name,city,country:'BR',lat,lng,radius,custom:true});
+  localStorage.setItem('fp-wh',JSON.stringify(customWH));
+  hideAddWarehouse();
+  renderDB();
+  toast('✅ Armazém "'+name+'" adicionado!');
+}
+
+function deleteWH(id) {
+  customWH=customWH.filter(w=>w.id!==id);
+  localStorage.setItem('fp-wh',JSON.stringify(customWH));
+  renderDB(); toast('🗑 Removido');
+}
+
+/* =====================================================
+   HISTORY
+   ===================================================== */
+function renderHist() {
+  const el=document.getElementById('hist-list');
+  if(!hist.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-txt">Nenhuma rota salva ainda.</div></div>'; updateDash(); return; }
+  el.innerHTML=hist.map(h=>{
+    const pos=h.profit>=0, great=h.hourly>=20;
+    const dotBg=pos?(great?'var(--gdim)':'var(--odim)'):'var(--rdim)';
+    const dotColor=pos?(great?'var(--green)':'var(--orange)'):'var(--red)';
+    const gpsTag=h.gps?'<span style="font-size:9px;background:var(--bdim);color:var(--blue);padding:2px 6px;border-radius:4px;font-family:var(--fm)">GPS</span>':'';
+    const whTag=h.warehouse?`<span style="font-size:9px;color:var(--text3)">${h.warehouse}</span>`:'';
+    return `<div class="hi">
+      <div class="hi-dot" style="background:${dotBg};color:${dotColor}">${pos?'+':'-'}$${Math.abs(h.profit).toFixed(0)}</div>
+      <div class="hi-body">
+        <div class="hi-t">$${h.routeVal} — ${h.hours}h ${gpsTag}</div>
+        <div class="hi-s">${h.totalMiles}mi • ${h.date} • ${whTag}</div>
+      </div>
+      <div class="hi-r">
+        <div class="hi-ph" style="color:${dotColor}">$${Math.abs(h.hourly).toFixed(2)}/h</div>
+        <div class="hi-s2">${pos?'':'-'}$${Math.abs(h.profit).toFixed(2)}</div>
+        <button onclick="delHist(${h.id})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;margin-top:2px">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  updateDash();
+}
+
+function delHist(id){ hist=hist.filter(h=>h.id!==id); localStorage.setItem('fp-hist',JSON.stringify(hist)); renderHist(); toast('🗑 Removida'); }
+function clearHist(){ if(!hist.length||!confirm('Limpar histórico?'))return; hist=[]; localStorage.setItem('fp-hist',JSON.stringify(hist)); renderHist(); toast('🗑 Limpo'); }
+
+function updateDash() {
+  const total=hist.reduce((s,h)=>s+(h.profit>0?h.profit:0),0);
+  const avg=hist.length?hist.reduce((s,h)=>s+h.hourly,0)/hist.length:0;
+  const best=hist.length?Math.max(...hist.map(h=>h.profit)):0;
+  const great=hist.filter(h=>h.hourly>=20).length;
+  document.getElementById('d-total').textContent='$'+total.toFixed(2);
+  document.getElementById('d-count').textContent=hist.length+' rota'+(hist.length!==1?'s':'');
+  document.getElementById('d-avg').textContent='$'+avg.toFixed(2)+'/h';
+  document.getElementById('d-best').textContent=hist.length?'$'+best.toFixed(2):'—';
+  document.getElementById('d-great').textContent=great;
+}
+
+/* =====================================================
+   TOAST
+   ===================================================== */
+let toastT;
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),3000);
+}
+
+/* =====================================================
+   INIT
+   ===================================================== */
+setPhase('idle');
+updateLiveUI();
+renderDB();
+renderHist();
+
+/* GPS passivo para mostrar armazéns próximos mesmo em idle */
+if(navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(pos=>{
+    S.currentCoord={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    checkGeofence(S.currentCoord);
+  }, ()=>{}, {enableHighAccuracy:true,timeout:8000});
+}
+</script>
+</body>
+</html>
